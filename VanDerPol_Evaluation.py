@@ -39,7 +39,7 @@ def evaluate(model, test_X, test_y, device):
     with torch.no_grad():
         test_X = test_X.to(device)
         test_y = test_y.to(device)
-        output = model(test_X)
+        output, hidden = model(test_X)
         output_np = output.detach().cpu().numpy()
         test_y_np = test_y.detach().cpu().numpy()
         mse = mean_squared_error(test_y_np, output_np)
