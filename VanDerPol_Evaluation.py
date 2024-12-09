@@ -5,7 +5,7 @@ import torch.optim as optim
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from models.VanDerPol import RNNwithODE
-from utils.data_preprocessing import load_and_preprocess_data
+from utils.data_preprocessing_new import load_and_preprocess_data
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 
