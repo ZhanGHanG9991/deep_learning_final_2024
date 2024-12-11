@@ -5,9 +5,10 @@ import torch.optim as optim
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from models.VanDerPol import RNNwithODE
-from utils.data_preprocessing_new import load_and_preprocess_data
+from utils.data_preprocessing import load_and_preprocess_data
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 # Define the argument parser
@@ -46,42 +47,14 @@ def evaluate(model, test_X, test_y, device):
         mae = mean_absolute_error(test_y_np, output_np)
     return mse, mae
 
-# def train(model, train_X, train_y, valid_X, valid_y, test_X, test_y, epochs, batch_size):
-#     model.train()
-
-#     train_dataset = torch.utils.data.TensorDataset(train_X, train_y)
-#     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
-
-#     for epoch in range(epochs):
-#         epoch_loss = 0  # 用于累积每个 epoch 的总损失
-#         for i in tqdm(range(0, len(train_X), batch_size)):
-#             batch_X = train_X[i:i + batch_size].to(device)
-#             batch_y = train_y[i:i + batch_size].to(device)
-
-#             if len(batch_X) == 0:
-#                 continue  # 跳过空批次
-            
-#             optimizer.zero_grad()
-#             output, hidden = model(batch_X)  # LSTM已处理了特征维度
-#             loss = criterion(output, batch_y)
-#             loss.backward()
-#             optimizer.step()
-#             hidden = hidden[-1]
-            
-#             epoch_loss += loss.item()  # 累积每个批次的损失
-
-#         # 计算并输出训练集、验证集和测试集的损失
-#         train_loss = compute_loss(model, train_X, train_y)
-#         valid_loss = compute_loss(model, valid_X, valid_y)
-#         test_loss = compute_loss(model, test_X, test_y)
-
-#         print(f"Epoch [{epoch+1}/{epochs}], Train Loss: {train_loss:.4f}, Validation Loss: {valid_loss:.4f}, Test Loss: {test_loss:.4f}")
 def train(model, criterion, optimizer, train_X, train_y, valid_X, valid_y, test_X, test_y, epochs, batch_size, device, hidden_size,t_span):
     train_dataset = TensorDataset(train_X, train_y)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     best_valid_loss = float('inf')
+    train_losses = []
+    valid_losses = []
+    test_losses = []
 
     for epoch in range(epochs):
         model.train()
@@ -106,13 +79,16 @@ def train(model, criterion, optimizer, train_X, train_y, valid_X, valid_y, test_
                 loss.backward()
                 optimizer.step()
 
-                hidden = hidden[-1]
+                # hidden = hidden[-1]
 
             epoch_loss += loss.item()
 
         train_loss = epoch_loss / len(train_loader)
         valid_loss = compute_loss(model, criterion, valid_X, valid_y, device)
         test_loss = compute_loss(model, criterion, test_X, test_y, device)
+        train_losses.append(train_loss)
+        valid_losses.append(valid_loss)
+        test_losses.append(test_loss)
 
         print(f"[Epoch {epoch+1}/{epochs}] "
               f"Train Loss: {train_loss:.4f}, Valid Loss: {valid_loss:.4f}, Test Loss: {test_loss:.4f}")
@@ -121,6 +97,21 @@ def train(model, criterion, optimizer, train_X, train_y, valid_X, valid_y, test_
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             # torch.save(model.state_dict(), "best_model.pth")
+    
+    fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+    axes[0].plot(train_losses, label='Train Loss')
+    axes[0].set_title('Train Loss')
+    axes[0].set_ylabel('Loss')
+
+    axes[1].plot(valid_losses, label='Valid Loss')
+    axes[1].set_title('Valid Loss')
+    axes[1].set_ylabel('Loss')
+
+    axes[2].plot(test_losses, label='Test Loss')
+    axes[2].set_title('Test Loss')
+    axes[2].set_ylabel('Loss')
+
+    plt.savefig('/scratch/gpfs/kf1298/code/NeurODE/losses.png')
 
     mse, mae = evaluate(model, test_X, test_y, device)
     print(f"Final Test MSE: {mse:.4f}, Final Test MAE: {mae:.4f}")
