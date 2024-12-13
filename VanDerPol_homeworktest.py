@@ -13,7 +13,7 @@ from umap import UMAP
 import time 
 import torchode
 
-with open("/scratch/gpfs/kf1298/code/RNN/car_racing_data_32x32_120.pkl", "rb") as f:
+with open("car_racing_data_32x32_120.pkl", "rb") as f:
     data = pickle.load(f)
 
 wandb.init(project="Test_Car")
@@ -64,7 +64,7 @@ class RNNwithODE(nn.Module):
         x = torch.cat((state_flat, action), dim=1).unsqueeze(1)
 
         start = time.time()
-        hidden = torchode.ODEProblem(self.ode_func, hidden, t_span)
+        hidden = odeint(self.ode_func, hidden, t_span)
         end=time.time() 
         print(f"ODE_Time: {end-start}")
         # print(f"ODE trajectory shape: {hidden.shape}") 
@@ -330,7 +330,7 @@ def PCA_analysis(activations):
     ax.set_xticks([]) 
     ax.set_yticks([]) 
     ax.set_zticks([]) 
-    plt.savefig("/scratch/gpfs/kf1298/code/NeurODE/PCA.png")
+    plt.savefig("pics/car_racing_UMAP of Hidden Activations")
 
 
 

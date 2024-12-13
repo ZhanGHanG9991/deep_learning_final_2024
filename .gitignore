@@ -1,2 +1,5 @@
 datasets/*
 **/__pycache__/
+*.pkl
+*.pth
+wandb/

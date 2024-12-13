@@ -9,7 +9,11 @@ from utils.data_preprocessing import load_and_preprocess_data
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-
+from torchdiffeq import odeint
+from sklearn.decomposition import PCA
+import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
+from umap import UMAP
 
 # Define the argument parser
 def parse_args():
@@ -37,15 +41,20 @@ def compute_loss(model, criterion, data_X, data_y, device):
 
 def evaluate(model, test_X, test_y, device):
     model.eval()
+    activations = []
     with torch.no_grad():
         test_X = test_X.to(device)
         test_y = test_y.to(device)
         output, hidden = model(test_X)
+        # Extract and store hidden states
+        hidden_extract = hidden.clone().cpu().numpy()
+        activations.append(hidden_extract)
+        
         output_np = output.detach().cpu().numpy()
         test_y_np = test_y.detach().cpu().numpy()
         mse = mean_squared_error(test_y_np, output_np)
         mae = mean_absolute_error(test_y_np, output_np)
-    return mse, mae
+    return mse, mae, activations
 
 def train(model, criterion, optimizer, train_X, train_y, valid_X, valid_y, test_X, test_y, epochs, batch_size, device, hidden_size,t_span):
     train_dataset = TensorDataset(train_X, train_y)
@@ -111,12 +120,54 @@ def train(model, criterion, optimizer, train_X, train_y, valid_X, valid_y, test_
     axes[2].set_title('Test Loss')
     axes[2].set_ylabel('Loss')
 
-    plt.savefig('/scratch/gpfs/kf1298/code/NeurODE/losses.png')
+    plt.savefig('pics/losses.png')
 
-    mse, mae = evaluate(model, test_X, test_y, device)
+    mse, mae, activations = evaluate(model, test_X, test_y, device)
+    print(f"Final Test MSE: {mse:.4f}, Final Test MAE: {mae:.4f}")
+    
+    # Perform PCA analysis
+    PCA_analysis(activations)    
     print(f"Final Test MSE: {mse:.4f}, Final Test MAE: {mae:.4f}")
 
+def PCA_analysis(activations):
+    all_activations = np.concatenate(activations, axis=0)
+    print(f"all_activations shape: {all_activations.shape}")
+    
+    # Reshape activations for PCA
+    steps, batch, num_neurons = all_activations.shape
+    reshaped_activations = all_activations.reshape(-1, num_neurons)
+    
+    # PCA reduction
+    pca = PCA(n_components=105)
+    reduced_activations = pca.fit_transform(reshaped_activations)
+    
+    # UMAP reduction
+    reducer = UMAP(n_components=3, random_state=42)
+    umap_result = reducer.fit_transform(reduced_activations)
 
+    # Create 3D visualization
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Color coding based on time steps
+    time_steps = np.arange(reshaped_activations.shape[0])
+    color_values = time_steps
+    norm = plt.Normalize(vmin=color_values.min(), vmax=color_values.max())
+    color_values = norm(color_values)
+    cmap = plt.cm.viridis
+
+    # Create scatter plot
+    ax.scatter(umap_result[:, 0], umap_result[:, 1], umap_result[:, 2], 
+              alpha=0.7, c=color_values, cmap=cmap, s=1)
+    ax.set_title("UMAP of Hidden Activations")
+    ax.set_xlabel("UMAP1")
+    ax.set_ylabel("UMAP2")
+    ax.set_zlabel("UMAP3")
+    ax.set_xticks([]) 
+    ax.set_yticks([]) 
+    ax.set_zticks([]) 
+    
+    plt.savefig('pics/hidden_state_visualization.png')
 
 if __name__ == "__main__":
     opt = parse_args()
